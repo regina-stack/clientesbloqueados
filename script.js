@@ -156,12 +156,15 @@
   window.openLoginModal = async function() {
     document.getElementById('login-modal').style.display = 'flex';
     const { data: users, error } = await db.from('usuarios').select('id').limit(1);
-    if (!error && (!users || users.length === 0)) {
+    const isFirstUser = !error && (!users || users.length === 0);
+    if (isFirstUser) {
       showRegisterForm();
       document.getElementById('first-user-hint').style.display = 'block';
+      document.getElementById('link-criar-conta').style.display = 'inline';
     } else {
       showLoginForm();
       document.getElementById('first-user-hint').style.display = 'none';
+      document.getElementById('link-criar-conta').style.display = 'none';
     }
   };
 
@@ -237,20 +240,24 @@
     if (senha.length < 6) return showError('reg-error', 'Senha deve ter no mínimo 6 caracteres.');
     showLoading(true);
     try {
+      // Bloqueio de segurança: cadastro público só permitido se NÃO houver usuários ainda
+      const { data: allUsers } = await db.from('usuarios').select('id').limit(1);
+      if (allUsers && allUsers.length > 0) {
+        showLoading(false);
+        return showError('reg-error', 'Cadastro público bloqueado. Solicite ao administrador que crie sua conta.');
+      }
       const { data: existing } = await db.from('usuarios').select('id').eq('email', email);
       if (existing && existing.length > 0) return showError('reg-error', 'E-mail já cadastrado.');
-      const { data: allUsers } = await db.from('usuarios').select('id').limit(1);
-      const role = (!allUsers || allUsers.length === 0) ? 'admin' : 'funcionario';
       const senhaHash = await hashSenha(senha);
       const respostaHash = await hashSenha(resposta);
       const { data, error } = await db.from('usuarios').insert({
         nome, email, senha_hash: senhaHash,
-        pergunta_seguranca: pergunta, resposta_hash: respostaHash, role
+        pergunta_seguranca: pergunta, resposta_hash: respostaHash, role: 'admin'
       }).select();
       if (error) throw error;
-      currentUser = { id: data[0].id, nome, email, role };
+      currentUser = { id: data[0].id, nome, email, role: 'admin' };
       setSession(currentUser);
-      await logAction('CADASTRO_USUARIO', `Novo ${role}: ${nome}`);
+      await logAction('CADASTRO_USUARIO', `Administrador inicial: ${nome}`);
       closeLoginModal();
       updateAuthUI();
       await loadAllData();
@@ -332,6 +339,8 @@
       btnNovo.style.display = 'inline-flex';
       btnImport.style.display = isAdmin ? 'inline-flex' : 'none';
       tabLog.style.display = isAdmin ? 'inline-flex' : 'none';
+      const tabUsuarios = document.getElementById('tab-usuarios');
+      if (tabUsuarios) tabUsuarios.style.display = isAdmin ? 'inline-flex' : 'none';
       if (btnExcluir) btnExcluir.style.display = isAdmin ? 'inline-flex' : 'none';
       thA.textContent = 'Ações';
     } else {
@@ -340,8 +349,10 @@
       btnNovo.style.display = 'none';
       btnImport.style.display = 'none';
       tabLog.style.display = 'none';
+      const tabUsuarios = document.getElementById('tab-usuarios');
+      if (tabUsuarios) tabUsuarios.style.display = 'none';
       thA.textContent = '';
-      if (currentTab === 'log') switchTab('atual');
+      if (currentTab === 'log' || currentTab === 'usuarios') switchTab('atual');
     }
   }
 
@@ -367,9 +378,11 @@
   // ---------- ABAS ----------
   window.switchTab = function(tab) {
     currentTab = tab;
-    ['atual','historico','log'].forEach(t => {
-      document.getElementById('tab-'+t).classList.toggle('active', tab === t);
-      document.getElementById('view-'+t).style.display = tab === t ? 'block' : 'none';
+    ['atual','historico','log','usuarios'].forEach(t => {
+      const btn = document.getElementById('tab-'+t);
+      const view = document.getElementById('view-'+t);
+      if (btn) btn.classList.toggle('active', tab === t);
+      if (view) view.style.display = tab === t ? 'block' : 'none';
     });
     render();
   };
@@ -762,8 +775,8 @@
     const emptyEl = document.getElementById('log-empty');
     if (cache.log.length === 0) { listEl.innerHTML = ''; emptyEl.style.display = 'block'; return; }
     emptyEl.style.display = 'none';
-    const acaoMap = { 'LOGIN':'🔓','LOGOUT':'🔒','CADASTRO_USUARIO':'👤','CADASTRAR_CLIENTE':'➕','EDITAR_CLIENTE':'✏️','EXCLUIR_CLIENTE':'🗑️','NOVO_BLOQUEIO':'🔴','DESBLOQUEIO':'🟢','EDITAR_BLOQUEIO':'✏️','EXCLUIR_BLOQUEIO':'🗑️','IMPORTAR':'📥' };
-    const acaoLabel = { 'LOGIN':'Entrou','LOGOUT':'Saiu','CADASTRO_USUARIO':'Cadastrou usuário','CADASTRAR_CLIENTE':'Cadastrou cliente','EDITAR_CLIENTE':'Editou cliente','EXCLUIR_CLIENTE':'Excluiu cliente','NOVO_BLOQUEIO':'Novo bloqueio','DESBLOQUEIO':'Desbloqueou','EDITAR_BLOQUEIO':'Editou bloqueio','EXCLUIR_BLOQUEIO':'Excluiu bloqueio','IMPORTAR':'Importou planilha' };
+    const acaoMap = { 'LOGIN':'🔓','LOGOUT':'🔒','CADASTRO_USUARIO':'👤','CADASTRAR_CLIENTE':'➕','EDITAR_CLIENTE':'✏️','EXCLUIR_CLIENTE':'🗑️','NOVO_BLOQUEIO':'🔴','DESBLOQUEIO':'🟢','EDITAR_BLOQUEIO':'✏️','EXCLUIR_BLOQUEIO':'🗑️','IMPORTAR':'📥','RESET_SENHA':'🔑','PROMOVER_USUARIO':'⬆️','REBAIXAR_USUARIO':'⬇️','REMOVER_USUARIO':'🚫' };
+    const acaoLabel = { 'LOGIN':'Entrou','LOGOUT':'Saiu','CADASTRO_USUARIO':'Cadastrou usuário','CADASTRAR_CLIENTE':'Cadastrou cliente','EDITAR_CLIENTE':'Editou cliente','EXCLUIR_CLIENTE':'Excluiu cliente','NOVO_BLOQUEIO':'Novo bloqueio','DESBLOQUEIO':'Desbloqueou','EDITAR_BLOQUEIO':'Editou bloqueio','EXCLUIR_BLOQUEIO':'Excluiu bloqueio','IMPORTAR':'Importou planilha','RESET_SENHA':'Resetou senha','PROMOVER_USUARIO':'Promoveu usuário','REBAIXAR_USUARIO':'Rebaixou usuário','REMOVER_USUARIO':'Removeu usuário' };
     listEl.innerHTML = cache.log.map(l => `<div class="log-item">
       <div style="font-size:18px;">${acaoMap[l.acao] || '•'}</div>
       <div>
@@ -812,6 +825,7 @@
     if (currentTab === 'atual') renderAtual(clients, porCliente, q, statusF, dateDe, dateAte);
     else if (currentTab === 'historico') renderHistorico(clients, bloqueios, q, statusF, dateDe, dateAte);
     else if (currentTab === 'log') renderLog();
+    else if (currentTab === 'usuarios') renderUsuarios();
   };
 
   function renderAtual(clients, porCliente, q, statusF, dateDe, dateAte) {
@@ -915,6 +929,182 @@
       </tr>`;
     }).join('');
   }
+
+  // ---------- GERENCIAMENTO DE USUÁRIOS (ADMIN) ----------
+  async function renderUsuarios() {
+    const listEl = document.getElementById('users-tbody');
+    const emptyEl = document.getElementById('users-empty');
+    if (!currentUser || currentUser.role !== 'admin') {
+      listEl.innerHTML = '';
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = 'Apenas administradores podem ver esta seção.';
+      return;
+    }
+    try {
+      const { data: users } = await db.from('usuarios').select('id, nome, email, role, created_at').order('created_at');
+      if (!users || users.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.style.display = 'block';
+        emptyEl.textContent = 'Nenhum usuário cadastrado.';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      listEl.innerHTML = users.map(u => {
+        const badge = u.role === 'admin' ? '<span class="badge-admin">Admin</span>' : '<span class="pill-desb">Funcionário</span>';
+        const isSelf = u.id === currentUser.id;
+        const acoes = `
+          <button class="mini-btn" onclick="openResetUserModal('${u.id}','${escapeHTML(u.nome).replace(/'/g,"\\'")}')">Resetar senha</button>
+          ${!isSelf ? `
+            ${u.role !== 'admin' ? `<button class="mini-btn" onclick="promoteUser('${u.id}','${escapeHTML(u.nome).replace(/'/g,"\\'")}')">Promover a admin</button>` : `<button class="mini-btn" onclick="demoteUser('${u.id}','${escapeHTML(u.nome).replace(/'/g,"\\'")}')">Tornar funcionário</button>`}
+            <button class="mini-btn" style="color:#d34745;" onclick="deleteUser('${u.id}','${escapeHTML(u.nome).replace(/'/g,"\\'")}')">Remover</button>
+          ` : '<span class="muted" style="font-size:11px;margin-left:8px;">(você)</span>'}
+        `;
+        return `<tr>
+          <td style="font-weight:500;">${escapeHTML(u.nome)}</td>
+          <td class="muted">${escapeHTML(u.email)}</td>
+          <td>${badge}</td>
+          <td style="font-size:13px;">${fmtDateTime(u.created_at)}</td>
+          <td style="text-align:right;white-space:nowrap;">${acoes}</td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      console.error(e);
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = 'Erro ao carregar usuários.';
+    }
+  }
+
+  window.openCreateUserModal = function() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    ['cu-nome','cu-email','cu-senha','cu-pergunta','cu-resposta'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('cu-role').value = 'funcionario';
+    hideErrors();
+    document.getElementById('create-user-modal').style.display = 'flex';
+  };
+  window.closeCreateUserModal = function() {
+    document.getElementById('create-user-modal').style.display = 'none';
+  };
+
+  window.createUser = async function() {
+    hideErrors();
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const nome = document.getElementById('cu-nome').value.trim();
+    const email = document.getElementById('cu-email').value.trim().toLowerCase();
+    const senha = document.getElementById('cu-senha').value;
+    const pergunta = document.getElementById('cu-pergunta').value.trim();
+    const resposta = document.getElementById('cu-resposta').value.trim().toLowerCase();
+    const role = document.getElementById('cu-role').value;
+    if (!nome || !email || !senha || !pergunta || !resposta) return showError('cu-error', 'Preencha todos os campos.');
+    if (senha.length < 6) return showError('cu-error', 'Senha deve ter no mínimo 6 caracteres.');
+    showLoading(true);
+    try {
+      const { data: existing } = await db.from('usuarios').select('id').eq('email', email);
+      if (existing && existing.length > 0) return showError('cu-error', 'E-mail já cadastrado.');
+      const senhaHash = await hashSenha(senha);
+      const respostaHash = await hashSenha(resposta);
+      const { error } = await db.from('usuarios').insert({
+        nome, email, senha_hash: senhaHash,
+        pergunta_seguranca: pergunta, resposta_hash: respostaHash, role
+      });
+      if (error) throw error;
+      await logAction('CADASTRO_USUARIO', `Criou ${role}: ${nome} (${email})`);
+      closeCreateUserModal();
+      alert(`Usuário criado com sucesso!\n\nNome: ${nome}\nE-mail: ${email}\nSenha inicial: ${senha}\n\nInforme esses dados ao usuário.`);
+      render();
+    } catch(e) {
+      showError('cu-error', 'Erro: ' + e.message);
+    } finally { showLoading(false); }
+  };
+
+  let resetUserId = null, resetUserName = '';
+  window.openResetUserModal = function(userId, userName) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    resetUserId = userId;
+    resetUserName = userName;
+    document.getElementById('ru-target').textContent = 'Usuário: ' + userName;
+    document.getElementById('ru-senha').value = '';
+    hideErrors();
+    document.getElementById('reset-user-modal').style.display = 'flex';
+  };
+  window.closeResetUserModal = function() {
+    document.getElementById('reset-user-modal').style.display = 'none';
+    resetUserId = null;
+  };
+  window.resetUserPassword = async function() {
+    hideErrors();
+    if (!currentUser || currentUser.role !== 'admin' || !resetUserId) return;
+    const novaSenha = document.getElementById('ru-senha').value;
+    if (!novaSenha || novaSenha.length < 6) return showError('ru-error', 'Senha deve ter no mínimo 6 caracteres.');
+    showLoading(true);
+    try {
+      const senhaHash = await hashSenha(novaSenha);
+      const { error } = await db.from('usuarios').update({ senha_hash: senhaHash }).eq('id', resetUserId);
+      if (error) throw error;
+      await logAction('RESET_SENHA', `Resetou senha de: ${resetUserName}`);
+      closeResetUserModal();
+      alert(`Senha resetada com sucesso!\n\nNova senha: ${novaSenha}\n\nInforme ao usuário.`);
+      render();
+    } catch(e) {
+      showError('ru-error', 'Erro: ' + e.message);
+    } finally { showLoading(false); }
+  };
+
+  window.promoteUser = async function(userId, userName) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!confirm(`Promover ${userName} a administrador?\n\nEle terá acesso total, incluindo criar/remover usuários e excluir registros.`)) return;
+    showLoading(true);
+    try {
+      const { error } = await db.from('usuarios').update({ role: 'admin' }).eq('id', userId);
+      if (error) throw error;
+      await logAction('PROMOVER_USUARIO', `Promoveu a admin: ${userName}`);
+      render();
+    } catch(e) {
+      alert('Erro: ' + e.message);
+    } finally { showLoading(false); }
+  };
+
+  window.demoteUser = async function(userId, userName) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!confirm(`Tornar ${userName} funcionário comum?\n\nEle perderá acesso para gerenciar usuários e excluir registros.`)) return;
+    showLoading(true);
+    try {
+      // Não permitir rebaixar o último admin
+      const { data: admins } = await db.from('usuarios').select('id').eq('role', 'admin');
+      if (admins && admins.length <= 1) {
+        showLoading(false);
+        return alert('Não é possível. Precisa existir ao menos um administrador no sistema.');
+      }
+      const { error } = await db.from('usuarios').update({ role: 'funcionario' }).eq('id', userId);
+      if (error) throw error;
+      await logAction('REBAIXAR_USUARIO', `Rebaixou a funcionário: ${userName}`);
+      render();
+    } catch(e) {
+      alert('Erro: ' + e.message);
+    } finally { showLoading(false); }
+  };
+
+  window.deleteUser = async function(userId, userName) {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!confirm(`Remover o usuário "${userName}"?\n\nEsta ação é irreversível. O histórico de ações dele permanecerá no log de auditoria.`)) return;
+    showLoading(true);
+    try {
+      // Não permitir remover o último admin
+      const { data: userToDel } = await db.from('usuarios').select('role').eq('id', userId);
+      if (userToDel && userToDel[0] && userToDel[0].role === 'admin') {
+        const { data: admins } = await db.from('usuarios').select('id').eq('role', 'admin');
+        if (admins && admins.length <= 1) {
+          showLoading(false);
+          return alert('Não é possível remover. Precisa existir ao menos um administrador no sistema.');
+        }
+      }
+      const { error } = await db.from('usuarios').delete().eq('id', userId);
+      if (error) throw error;
+      await logAction('REMOVER_USUARIO', `Removeu: ${userName}`);
+      render();
+    } catch(e) {
+      alert('Erro: ' + e.message);
+    } finally { showLoading(false); }
+  };
 
   // ---------- EXPORT EXCEL ----------
   window.exportExcel = function() {
