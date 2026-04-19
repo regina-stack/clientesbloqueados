@@ -66,15 +66,26 @@ Ou pelo site: crie um novo repositório no GitHub, arraste os arquivos pela inte
 ### 5. Criar o primeiro usuário (administrador)
 
 1. Abra o painel no navegador
-2. Clique em **Entrar** → **Criar conta**
-3. **O primeiro usuário cadastrado será o administrador automaticamente**
+2. Clique em **Entrar** → o sistema vai detectar que não há usuários e mostrar o formulário de cadastro
+3. **Este primeiro cadastro será o administrador** do sistema
 4. Preencha todos os campos e salve
 
+### 6. Criar contas para sua equipe
+
+**Depois do primeiro cadastro, o cadastro público fica BLOQUEADO.** Apenas você (admin) pode criar novas contas.
+
+Para criar conta da sua equipe:
+1. Faça login com sua conta de administrador
+2. Clique na aba **Usuários** (só aparece para admins)
+3. Clique em **+ Novo usuário**
+4. Preencha: nome, e-mail, senha inicial, pergunta de segurança e resposta
+5. Escolha o tipo: **Funcionário** (padrão) ou **Administrador**
+6. Informe a senha inicial ao colaborador — ele pode mudar depois em "Esqueci minha senha"
+
 Pronto! Agora você pode:
-- Compartilhar o link com toda a equipe
-- Cadastrar clientes e registrar bloqueios
-- Os demais funcionários criam conta como "Funcionário comum"
-- Qualquer pessoa (mesmo sem login) consegue ver a lista de bloqueados
+- Compartilhar o link com toda a equipe para **visualização pública** (sem login)
+- Criar contas apenas para quem precisa **cadastrar/editar** registros
+- Gerenciar usuários pela aba "Usuários": resetar senhas, promover/rebaixar, remover
 
 ## Estrutura dos arquivos
 
