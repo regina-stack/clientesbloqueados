@@ -107,6 +107,7 @@
       <button class="tab-btn active" id="tab-atual" onclick="switchTab('atual')">Situação atual</button>
       <button class="tab-btn" id="tab-historico" onclick="switchTab('historico')">Histórico completo</button>
       <button class="tab-btn" id="tab-log" onclick="switchTab('log')" style="display:none;">Log de auditoria</button>
+      <button class="tab-btn" id="tab-usuarios" onclick="switchTab('usuarios')" style="display:none;">Usuários</button>
     </div>
 
     <!-- FILTROS -->
@@ -165,6 +166,29 @@
       <div id="log-empty" class="empty-state muted" style="display:none;">Nenhuma ação registrada ainda.</div>
     </div>
 
+    <!-- USUÁRIOS (só admin) -->
+    <div id="view-usuarios" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+        <div>
+          <h3 style="margin:0;">Funcionários cadastrados</h3>
+          <p class="muted" style="font-size:12px;margin-top:4px;">Apenas administradores podem criar e gerenciar contas</p>
+        </div>
+        <button class="primary" onclick="openCreateUserModal()">+ Novo usuário</button>
+      </div>
+      <div class="card-surface">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr>
+              <th>Nome</th><th>E-mail</th><th>Tipo</th><th>Cadastrado em</th>
+              <th style="text-align:right;">Ações</th>
+            </tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+        <div id="users-empty" class="empty-state muted" style="display:none;">Nenhum usuário cadastrado.</div>
+      </div>
+    </div>
+
     <div class="dm-footer muted">
       DIGITAL+ CONTABILIDADE · PAINEL INTERNO · <span id="footer-date"></span>
     </div>
@@ -182,13 +206,13 @@
             <button class="primary" onclick="doLogin()" style="flex:1;">Entrar</button>
             <button onclick="closeLoginModal()">Cancelar</button>
           </div>
-          <div class="modal-links">
+          <div class="modal-links" id="login-links">
             <a href="#" onclick="event.preventDefault();showRecoverForm();">Esqueci minha senha</a>
-            <a href="#" onclick="event.preventDefault();showRegisterForm();">Criar conta</a>
+            <a href="#" id="link-criar-conta" onclick="event.preventDefault();showRegisterForm();" style="display:none;">Criar conta</a>
           </div>
         </div>
         <div id="register-form" style="display:none;">
-          <div id="first-user-hint" class="info-box" style="display:none;">O primeiro usuário cadastrado será o <b>administrador</b> do sistema.</div>
+          <div id="first-user-hint" class="info-box" style="display:none;">🔐 Este será o <b>primeiro cadastro do sistema</b>. Você será o administrador e poderá criar as contas dos demais funcionários pela aba "Usuários".</div>
           <label><span class="muted">Nome completo</span><input type="text" id="reg-nome"></label>
           <label><span class="muted">E-mail</span><input type="email" id="reg-email"></label>
           <label><span class="muted">Senha (mín. 6 caracteres)</span><input type="password" id="reg-senha"></label>
@@ -295,6 +319,48 @@
         <div class="modal-actions">
           <button class="primary" onclick="doImport()" id="btn-do-import" disabled style="flex:1;">Importar</button>
           <button onclick="closeImportModal()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="create-user-modal" class="modal-bg">
+      <div class="modal-card">
+        <h2 id="create-user-title">Novo usuário</h2>
+        <p class="muted modal-sub">Apenas administradores podem criar contas</p>
+        <label><span class="muted">Nome completo</span><input type="text" id="cu-nome"></label>
+        <label><span class="muted">E-mail</span><input type="email" id="cu-email"></label>
+        <label><span class="muted">Senha inicial (mín. 6 caracteres)</span><input type="text" id="cu-senha" placeholder="Informe ao usuário depois de criar"></label>
+        <label><span class="muted">Pergunta de segurança</span><input type="text" id="cu-pergunta" placeholder="Ex: Nome do meu primeiro pet"></label>
+        <label><span class="muted">Resposta</span><input type="text" id="cu-resposta"></label>
+        <label><span class="muted">Tipo de acesso</span>
+          <select id="cu-role">
+            <option value="funcionario">Funcionário (cadastra e edita)</option>
+            <option value="admin">Administrador (acesso total)</option>
+          </select>
+        </label>
+        <div class="info-box" style="font-size:12px;">
+          Após criar, avise o usuário da <b>senha inicial</b> e da <b>pergunta/resposta de segurança</b>. Ele poderá alterar depois usando "Esqueci minha senha".
+        </div>
+        <div id="cu-error" class="error-box" style="display:none;"></div>
+        <div class="modal-actions">
+          <button class="primary" onclick="createUser()" style="flex:1;">Criar usuário</button>
+          <button onclick="closeCreateUserModal()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="reset-user-modal" class="modal-bg">
+      <div class="modal-card">
+        <h2>Resetar senha do usuário</h2>
+        <p class="muted modal-sub" id="ru-target">—</p>
+        <label><span class="muted">Nova senha (mín. 6 caracteres)</span><input type="text" id="ru-senha" placeholder="Informe ao usuário depois"></label>
+        <div class="info-box" style="font-size:12px;">
+          Após salvar, avise o usuário da nova senha. Ele poderá entrar imediatamente com ela.
+        </div>
+        <div id="ru-error" class="error-box" style="display:none;"></div>
+        <div class="modal-actions">
+          <button class="primary" onclick="resetUserPassword()" style="flex:1;">Resetar senha</button>
+          <button onclick="closeResetUserModal()">Cancelar</button>
         </div>
       </div>
     </div>
